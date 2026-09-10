@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+*.log
+kubectl
+minikube-linux-amd64
+
+k8s/secret.yaml
