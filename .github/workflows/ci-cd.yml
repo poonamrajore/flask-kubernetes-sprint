@@ -75,3 +75,45 @@ jobs:
             whoami
             kubectl get nodes
             minikube status
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: docker
+
+    steps:
+      - name: Deploy application to EC2 Kubernetes
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/flask-kubernetes-sprint
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            echo "Applying Kubernetes manifests..."
+            kubectl apply -f k8s/namespace.yaml
+            kubectl apply -f k8s/configmap.yaml
+            kubectl apply -f k8s/secret.yaml
+            kubectl apply -f k8s/pvc.yaml
+            kubectl apply -f k8s/deployment.yaml
+            kubectl apply -f k8s/service.yaml
+            kubectl apply -f k8s/backend-deployment.yaml
+            kubectl apply -f k8s/backend-service.yaml
+
+            echo "Updating backend image..."
+            kubectl set image deployment/flask-backend \
+              flask-backend=${{ secrets.DOCKERHUB_USERNAME }}/flask-kubernetes-sprint:${{ github.sha }} \
+              -n flask-sprint
+
+            echo "Waiting for rollout..."
+            kubectl rollout status deployment/flask-backend \
+              -n flask-sprint --timeout=120s
+
+            echo "Checking application..."
+            kubectl get pods -n flask-sprint
+            kubectl get services -n flask-sprint
+
+            echo "Deployment successful!"
